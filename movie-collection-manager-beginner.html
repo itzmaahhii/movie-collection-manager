@@ -39,6 +39,8 @@ button.main { background: var(--red); border-color: var(--red); color: #fff; fon
 button.danger { color: var(--red); }
 input, select { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 label { display: block; font-size: 0.85rem; color: var(--mute); margin-top: 8px; }
+a { color: var(--red); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
 /* ===== LAYOUT PIECES ===== */
 .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 14px 0; }
@@ -69,6 +71,8 @@ label { display: block; font-size: 0.85rem; color: var(--mute); margin-top: 8px;
 .chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .node { background: var(--line); border-radius: 8px; padding: 4px 10px; font-size: 0.9rem; }
 .mute { color: var(--mute); }
+.project-links { margin-top: 12px; font-size: 0.9rem; }
+.project-links a { margin-right: 10px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 7px 5px; border-bottom: 1px solid var(--line); }
 .scroll { overflow-x: auto; }
@@ -424,6 +428,10 @@ function loginScreen() {
       <label for="login-pass">Password</label><input id="login-pass" type="password">
       <div class="buttons"><button class="main" data-action="login">${isNew ? 'Create account' : 'Sign in'}</button></div>
       <p class="mute">Accounts are saved in this browser. Admin demo: admin / admin123</p>
+      <div class="project-links">
+        <a href="https://itzmaahhii.github.io/movie-collection-manager/" target="_blank" rel="noreferrer">Live website</a>
+        <a href="https://github.com/itzmaahhii/movie-collection-manager" target="_blank" rel="noreferrer">GitHub repo</a>
+      </div>
     </div></div>`;
 }
 
@@ -490,7 +498,7 @@ function homeScreen() {
       <div class="stat"><b>${average}</b>Average rating</div>
     </div>
     <div class="panel"><h2>Recently watched</h2>${recent.length ? '<div class="chain">' + chainOfMovies(recent) + '</div>' : '<p class="mute">Nothing watched yet.</p>'}</div>
-    <div class="panel"><h2>Up next</h2>${queue.length ? '<p>First in your queue: <b>' + safe(queue[0].title) + '</b></p><button class="main" data-action="watch-next">Watched it</button>' : '<p class="mute">Your watchlist is empty.</p>'}</div>
+    <div class="panel"><h2>Up next</h2>${queue.length ? '<p>First in your queue: <b>' + safe(queue[0].title) + '</b></p><button class="main" data-action="watch-next">Watched it</button>' : '<p class="mute">Your queue is empty.</p>'}
     <h2>Featured picks</h2><div class="grid">${featured}</div>`;
 }
 
