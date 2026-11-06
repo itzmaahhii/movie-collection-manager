@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Movie Collection Manager</title>
+
+<style>
+/* ===== COLORS: change these to restyle the whole site ===== */
+:root {
+  --bg: #f1eef9;      /* page background */
+  --panel: #ffffff;   /* cards and boxes */
+  --ink: #1d1a3b;     /* main text */
+  --mute: #5f5a86;    /* lighter text */
+  --line: #d9d3ee;    /* borders */
+  --red: #c8283d;     /* main accent */
+  --gold: #f5b82e;    /* marquee bulbs */
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Dark mode colors, used when the device is set to dark */
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #17132b; --panel: #211c3d; --ink: #f1eef9; --mute: #aaa4d0; --line: #38325f; color-scheme: dark; }
+}
+
+/* ===== BASIC STYLES ===== */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, Arial, sans-serif; line-height: 1.5; }
+h1, h2, h3 { margin: 0 0 8px; font-family: Impact, 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: 0.03em; }
+h1 { font-size: 3rem; line-height: 1; }
+h2 { font-size: 1.9rem; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px 50px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+button:hover { border-color: var(--red); }
+button.main { background: var(--red); border-color: var(--red); color: #fff; font-weight: bold; }
+button.danger { color: var(--red); }
+input, select { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+label { display: block; font-size: 0.85rem; color: var(--mute); margin-top: 8px; }
+
+/* ===== LAYOUT PIECES ===== */
+.topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 14px 0; }
+.topbar nav button { border-color: transparent; background: none; }
+.topbar nav button.active { background: var(--ink); color: var(--bg); }
+.marquee { position: relative; background: var(--red); color: #fff; border-radius: 16px; padding: 44px 24px; margin-bottom: 20px; }
+.marquee::before, .marquee::after { content: ""; position: absolute; left: 14px; right: 14px; height: 14px; background: radial-gradient(circle, var(--gold) 3.5px, transparent 4.5px) 0 0 / 24px 14px repeat-x; }
+.marquee::before { top: 8px; }
+.marquee::after { bottom: 8px; }
+.marquee input { max-width: 420px; color: #1d1a3b; background: #fff; border: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.stat b { display: block; font-size: 1.8rem; font-family: Impact, sans-serif; font-weight: 400; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.ticket { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.stub { border-right: 2px dashed var(--line); padding: 12px; min-width: 80px; text-align: center; }
+.stub b { display: block; font-size: 2rem; font-family: Impact, sans-serif; font-weight: 400; color: var(--red); }
+.info { padding: 10px 14px; flex: 1; }
+.info p { margin: 0 0 6px; color: var(--mute); font-size: 0.9rem; }
+.tag { display: inline-block; border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; background: var(--line); }
+.buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.buttons button { padding: 3px 9px; font-size: 0.85rem; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.toolbar > * { flex: 1 1 150px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.empty { padding: 30px; text-align: center; border: 2px dashed var(--line); border-radius: 14px; color: var(--mute); }
+.chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.node { background: var(--line); border-radius: 8px; padding: 4px 10px; font-size: 0.9rem; }
+.mute { color: var(--mute); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 5px; border-bottom: 1px solid var(--line); }
+.scroll { overflow-x: auto; }
+.login { max-width: 420px; margin: 6vh auto; }
+#message { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 18px; border-radius: 99px; display: none; }
+</style>
+</head>
+
+<body>
+<div class="wrap" id="app"></div>
+<div id="message"></div>
+
+<script>
+// =====================================================
+//  MOVIE COLLECTION MANAGER - beginner version
+//  Sections: 1 Saving, 2 Variables, 3 Login,
+//  4 Movie actions, 5 Data structures, 6 Screens, 7 Clicks
+// =====================================================
+
+
+// ===== 1. SAVING AND LOADING DATA =====
+// localStorage keeps data in the browser after the page closes.
+// "memory" is a backup in case localStorage is blocked.
+const memory = {};
+
+function loadData(key, fallback) {
+  try {
+    const text = localStorage.getItem(key);
+    if (text !== null) return JSON.parse(text);
+  } catch (error) {
+    // storage not available, use memory below
+  }
+  if (memory[key] !== undefined) return JSON.parse(memory[key]);
+  return fallback;
+}
+
+function saveData(key, value) {
+  const text = JSON.stringify(value);   // turn the data into text
+  memory[key] = text;
+  try { localStorage.setItem(key, text); } catch (error) {}
+}
+
+// Stops user text from being treated as HTML
+function safe(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showMessage(text) {
+  const box = document.getElementById('message');
+  box.textContent = text;
+  box.style.display = 'block';
+  setTimeout(function () { box.style.display = 'none'; }, 2500);
+}
+
+
+// ===== 2. VARIABLES THE APP REMEMBERS =====
+const SAMPLE_MOVIES = [
+  { title: 'Inception', genre: 'Sci-Fi', year: 2010, rating: 8.8 },
+  { title: 'The Dark Knight', genre: 'Action', year: 2008, rating: 9.0 },
+  { title: 'Parasite', genre: 'Thriller', year: 2019, rating: 8.5 },
+  { title: 'Spirited Away', genre: 'Animation', year: 2001, rating: 8.6 },
+  { title: 'Interstellar', genre: 'Sci-Fi', year: 2014, rating: 8.7 },
+  { title: '3 Idiots', genre: 'Comedy', year: 2009, rating: 8.4 },
+  { title: 'Dangal', genre: 'Drama', year: 2016, rating: 8.3 },
+  { title: 'The Godfather', genre: 'Crime', year: 1972, rating: 9.2 }
+];
+
+let users = loadData('mcm_users', {});        // { username: { password, role } }
+let catalog = loadData('mcm_catalog', SAMPLE_MOVIES);  // featured movies (admin edits these)
+let currentUser = null;      // username of the person logged in
+let movies = [];             // the logged-in person's movie list (an array)
+let undoStack = [];          // stack: last change is undone first
+let currentPage = 'home';    // home, collection, watchlist or admin
+let loginMode = 'in';        // 'in' = sign in, 'up' = create account
+let searchText = '';
+let filterStatus = 'all';
+let sortBy = 'title';
+let editing = null;          // null, 'new', or the ID of the movie being edited
+
+
+// ===== 3. LOGIN AND ACCOUNTS =====
+// A simple scrambler so passwords are not stored as plain text.
+// NOTE: this is for learning. Real websites hash passwords on a server.
+function scramble(password) {
+  let number = 0;
+  for (let i = 0; i < password.length; i++) {
+    number = (number * 31 + password.charCodeAt(i)) % 1000000007;
+  }
+  return 'p' + number;
+}
+
+// Make sure an admin account exists
+function createAdminIfMissing() {
+  if (!users.admin) {
+    users.admin = { password: scramble('admin123'), role: 'admin' };
+    saveData('mcm_users', users);
+  }
+}
+
+function signUp(name, password) {
+  if (name.length < 3 || password.length < 6) {
+    showMessage('Username needs 3+ letters and password 6+ characters.');
+    return;
+  }
+  if (users[name]) {
+    showMessage('That username is already taken.');
+    return;
+  }
+  users[name] = { password: scramble(password), role: 'user' };
+  saveData('mcm_users', users);
+  startSession(name);
+}
+
+function logIn(name, password) {
+  const account = users[name];
+  if (!account || account.password !== scramble(password)) {
+    showMessage('Wrong username or password.');
+    return;
+  }
+  startSession(name);
+}
+
+function startSession(name) {
+  currentUser = name;
+  currentPage = 'home';
+  searchText = '';
+  editing = null;
+  undoStack = [];
+  // Each user has their own list, saved under their own name
+  movies = loadData('mcm_movies_' + name, null);
+  if (movies === null) {
+    movies = [];
+    // New users start with 4 sample movies
+    for (let i = 0; i < 4; i++) {
+      const movie = SAMPLE_MOVIES[i];
+      movies.push({ id: makeId(), title: movie.title, genre: movie.genre, year: movie.year,
+                    rating: movie.rating, status: i < 2 ? 'watched' : 'watchlist', addedAt: Date.now() + i, watchedAt: Date.now() + i });
+    }
+    saveMovies();
+  }
+  render();
+}
+
+function isAdmin() {
+  return currentUser !== null && users[currentUser].role === 'admin';
+}
+
+
+// ===== 4. MOVIE ACTIONS (add, edit, delete, undo) =====
+function saveMovies() {
+  saveData('mcm_movies_' + currentUser, movies);
+}
+
+// Next ID looks like M001, M002, M003 ...
+function makeId() {
+  let biggest = 0;
+  for (let i = 0; i < movies.length; i++) {
+    const number = parseInt(movies[i].id.slice(1));
+    if (number > biggest) biggest = number;
+  }
+  return 'M' + String(biggest + 1).padStart(3, '0');
+}
+
+// Before every change we save a copy on the undo stack
+function rememberForUndo() {
+  undoStack.push(JSON.stringify(movies));
+  if (undoStack.length > 20) undoStack.shift();   // keep only the last 20
+}
+
+function undoLastChange() {
+  if (undoStack.length === 0) return;
+  movies = JSON.parse(undoStack.pop());           // take the newest copy off the stack
+  saveMovies();
+  render();
+  showMessage('Last change undone.');
+}
+
+function findMovie(id) {
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].id === id) return movies[i];
+  }
+  return null;
+}
+
+// Stops the same movie being added twice
+function isDuplicate(title, year, ignoreId) {
+  for (let i = 0; i < movies.length; i++) {
+    const m = movies[i];
+    if (m.id !== ignoreId && m.title.toLowerCase() === title.toLowerCase() && m.year === year) return true;
+  }
+  return false;
+}
+
+function saveForm() {
+  const title = document.getElementById('f-title').value.trim();
+  const genre = document.getElementById('f-genre').value.trim() || 'Other';
+  const year = Number(document.getElementById('f-year').value);
+  const rating = Number(document.getElementById('f-rating').value);
+  const status = document.getElementById('f-status').value;
+
+  if (title === '') { showMessage('Please enter a title.'); return; }
+  if (year < 1888 || year > 2100) { showMessage('Please enter a real release year.'); return; }
+  if (rating < 0 || rating > 10) { showMessage('Rating must be between 0 and 10.'); return; }
+  if (isDuplicate(title, year, editing === 'new' ? null : editing)) { showMessage('That movie is already in your collection.'); return; }
+
+  rememberForUndo();
+  if (editing === 'new') {
+    movies.push({ id: makeId(), title: title, genre: genre, year: year, rating: rating,
+                  status: status, addedAt: Date.now(), watchedAt: status === 'watched' ? Date.now() : 0 });
+  } else {
+    const movie = findMovie(editing);
+    if (status === 'watched' && movie.status !== 'watched') movie.watchedAt = Date.now();
+    movie.title = title; movie.genre = genre; movie.year = year; movie.rating = rating; movie.status = status;
+  }
+  editing = null;
+  saveMovies();
+  render();
+  showMessage('Movie saved.');
+}
+
+function toggleWatched(id) {
+  rememberForUndo();
+  const movie = findMovie(id);
+  if (movie.status === 'watched') {
+    movie.status = 'watchlist';
+    movie.addedAt = Date.now();          // goes to the back of the queue
+  } else {
+    movie.status = 'watched';
+    movie.watchedAt = Date.now();
+  }
+  saveMovies();
+  render();
+}
+
+function deleteMovie(id) {
+  rememberForUndo();
+  const keep = [];
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].id !== id) keep.push(movies[i]);
+  }
+  movies = keep;
+  saveMovies();
+  render();
+  showMessage('Movie deleted. You can press Undo.');
+}
+
+function addFromCatalog(index) {
+  const pick = catalog[index];
+  if (isDuplicate(pick.title, pick.year, null)) { showMessage('Already on your shelf.'); return; }
+  rememberForUndo();
+  movies.push({ id: makeId(), title: pick.title, genre: pick.genre, year: pick.year, rating: pick.rating,
+                status: 'watchlist', addedAt: Date.now(), watchedAt: 0 });
+  saveMovies();
+  render();
+  showMessage('Added to your watchlist.');
+}
+
+
+// ===== 5. DATA STRUCTURES FROM THE PROPOSAL =====
+
+// ARRAY: "movies" above is an array holding all the movie records.
+
+// HASH TABLE: a Map finds a movie by ID in one step
+function searchById(id) {
+  const table = new Map();
+  for (let i = 0; i < movies.length; i++) {
+    table.set(movies[i].id, movies[i]);
+  }
+  return table.get(id.toUpperCase());     // returns undefined if not found
+}
+
+// QUEUE (first in, first out): the movie added first is watched first
+function getWatchlistQueue() {
+  const queue = [];
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].status === 'watchlist') queue.push(movies[i]);
+  }
+  queue.sort(function (a, b) { return a.addedAt - b.addedAt; });
+  return queue;                           // queue[0] is the front
+}
+
+function watchNext() {
+  const queue = getWatchlistQueue();
+  if (queue.length === 0) return;
+  toggleWatched(queue[0].id);             // removes the front of the queue
+  showMessage('Marked as watched.');
+}
+
+// LINKED LIST: each node points to the next one.
+// New watched movies are added at the head, so the list shows newest first.
+function getRecentlyWatched() {
+  const watched = [];
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].status === 'watched') watched.push(movies[i]);
+  }
+  watched.sort(function (a, b) { return a.watchedAt - b.watchedAt; });
+
+  let head = null;
+  for (let i = 0; i < watched.length; i++) {
+    head = { movie: watched[i], next: head };   // new node points to the old head
+  }
+
+  const result = [];
+  let node = head;
+  while (node !== null && result.length < 6) {   // walk along the list
+    result.push(node.movie);
+    node = node.next;
+  }
+  return result;
+}
+
+// SEARCHING AND SORTING
+function getVisibleMovies() {
+  let list = [];
+  const text = searchText.trim().toLowerCase();
+
+  if (/^m\d+$/.test(text)) {
+    // Looks like an ID, so use the hash table
+    const found = searchById(text);
+    if (found) list.push(found);
+  } else {
+    for (let i = 0; i < movies.length; i++) {
+      const m = movies[i];
+      if (text === '' || m.title.toLowerCase().includes(text) || m.genre.toLowerCase().includes(text)) list.push(m);
+    }
+  }
+
+  if (filterStatus !== 'all') {
+    list = list.filter(function (m) { return m.status === filterStatus; });
+  }
+
+  if (sortBy === 'title') list.sort(function (a, b) { return a.title.localeCompare(b.title); });
+  if (sortBy === 'year') list.sort(function (a, b) { return b.year - a.year; });
+  if (sortBy === 'rating') list.sort(function (a, b) { return b.rating - a.rating; });
+  return list;
+}
+
+
+// ===== 6. SCREENS =====
+// Each function below builds HTML text for one screen.
+// Backticks `...` let us put variables inside text using ${...}.
+
+function loginScreen() {
+  const isNew = loginMode === 'up';
+  return `<div class="login">
+    <div class="marquee"><h1>Movie Collection Manager</h1><p>Sign in to keep your own shelf of movies.</p></div>
+    <div class="panel">
+      <div class="buttons">
+        <button data-action="mode-in" class="${isNew ? '' : 'main'}">Sign in</button>
+        <button data-action="mode-up" class="${isNew ? 'main' : ''}">Create account</button>
+      </div>
+      <label for="login-name">Username</label><input id="login-name">
+      <label for="login-pass">Password</label><input id="login-pass" type="password">
+      <div class="buttons"><button class="main" data-action="login">${isNew ? 'Create account' : 'Sign in'}</button></div>
+      <p class="mute">Accounts are saved in this browser. Admin demo: admin / admin123</p>
+    </div></div>`;
+}
+
+function topBar() {
+  const pages = [['home', 'Home'], ['collection', 'My collection'], ['watchlist', 'Watchlist']];
+  if (isAdmin()) pages.push(['admin', 'Admin']);
+  let buttons = '';
+  for (let i = 0; i < pages.length; i++) {
+    buttons += `<button data-action="go" data-id="${pages[i][0]}" class="${currentPage === pages[i][0] ? 'active' : ''}">${pages[i][1]}</button>`;
+  }
+  return `<div class="topbar"><h3>Movie Collection Manager</h3><nav>${buttons}</nav>
+    <span class="mute">${safe(currentUser)} <button data-action="logout">Log out</button></span></div>`;
+}
+
+function movieCard(m) {
+  const statusText = m.status === 'watched' ? 'Watched' : 'On watchlist';
+  const toggleText = m.status === 'watched' ? 'Move to watchlist' : 'Mark watched';
+  return `<div class="ticket">
+    <div class="stub"><small>${m.id}</small><b>${m.rating.toFixed(1)}</b><small>rating</small></div>
+    <div class="info"><h3>${safe(m.title)}</h3><p>${safe(m.genre)}, ${m.year}</p><span class="tag">${statusText}</span>
+      <div class="buttons">
+        <button data-action="toggle" data-id="${m.id}">${toggleText}</button>
+        <button data-action="edit" data-id="${m.id}">Edit</button>
+        <button class="danger" data-action="delete" data-id="${m.id}">Delete</button>
+      </div></div></div>`;
+}
+
+function chainOfMovies(list) {
+  let html = '';
+  for (let i = 0; i < list.length; i++) {
+    if (i > 0) html += '<span>→</span>';
+    html += `<span class="node">${safe(list[i].title)}</span>`;
+  }
+  return html;
+}
+
+function homeScreen() {
+  const total = movies.length;
+  let watchedCount = 0, ratingTotal = 0;
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].status === 'watched') watchedCount++;
+    ratingTotal += movies[i].rating;
+  }
+  const average = total > 0 ? (ratingTotal / total).toFixed(1) : '0';
+  const recent = getRecentlyWatched();
+  const queue = getWatchlistQueue();
+
+  let featured = '';
+  for (let i = 0; i < catalog.length; i++) {
+    const c = catalog[i];
+    const owned = isDuplicate(c.title, c.year, null);
+    featured += `<div class="ticket"><div class="stub"><small>${c.year}</small><b>${c.rating.toFixed(1)}</b></div>
+      <div class="info"><h3>${safe(c.title)}</h3><p>${safe(c.genre)}</p>
+      <button ${owned ? 'disabled' : ''} data-action="add-featured" data-id="${i}">${owned ? 'Already on your shelf' : 'Add to my shelf'}</button></div></div>`;
+  }
+
+  return `<div class="marquee"><h1>Every movie you own, in order.</h1>
+      <p>Add films, mark what you have watched, and find any title quickly.</p>
+      <input id="home-search" placeholder="Search by title or ID, then press Enter"></div>
+    <div class="stats">
+      <div class="stat"><b>${total}</b>Movies</div>
+      <div class="stat"><b>${watchedCount}</b>Watched</div>
+      <div class="stat"><b>${total - watchedCount}</b>On watchlist</div>
+      <div class="stat"><b>${average}</b>Average rating</div>
+    </div>
+    <div class="panel"><h2>Recently watched</h2>${recent.length ? '<div class="chain">' + chainOfMovies(recent) + '</div>' : '<p class="mute">Nothing watched yet.</p>'}</div>
+    <div class="panel"><h2>Up next</h2>${queue.length ? '<p>First in your queue: <b>' + safe(queue[0].title) + '</b></p><button class="main" data-action="watch-next">Watched it</button>' : '<p class="mute">Your watchlist is empty.</p>'}</div>
+    <h2>Featured picks</h2><div class="grid">${featured}</div>`;
+}
+
+function movieForm() {
+  if (editing === null) return '';
+  const m = editing === 'new' ? { title: '', genre: '', year: 2024, rating: 7, status: 'watchlist' } : findMovie(editing);
+  return `<div class="panel"><h2>${editing === 'new' ? 'Add a movie' : 'Edit movie'}</h2>
+    <div class="fields">
+      <div><label>Title</label><input id="f-title" value="${safe(m.title)}"></div>
+      <div><label>Genre</label><input id="f-genre" value="${safe(m.genre)}"></div>
+      <div><label>Release year</label><input id="f-year" type="number" value="${m.year}"></div>
+      <div><label>Rating (0 to 10)</label><input id="f-rating" type="number" step="0.1" value="${m.rating}"></div>
+      <div><label>Status</label><select id="f-status">
+        <option value="watchlist" ${m.status === 'watchlist' ? 'selected' : ''}>On watchlist</option>
+        <option value="watched" ${m.status === 'watched' ? 'selected' : ''}>Watched</option></select></div>
+    </div>
+    <div class="buttons"><button class="main" data-action="save-form">Save movie</button><button data-action="cancel-form">Cancel</button></div></div>`;
+}
+
+// Only this part is redrawn while typing in the search box
+function movieResults() {
+  const list = getVisibleMovies();
+  if (list.length === 0) return '<div class="empty">No movies match. Clear the search or add a movie.</div>';
+  let cards = '';
+  for (let i = 0; i < list.length; i++) cards += movieCard(list[i]);
+  return `<p class="mute">${list.length} of ${movies.length} movies shown</p><div class="grid">${cards}</div>`;
+}
+
+function collectionScreen() {
+  return `<h2>My collection</h2>${movieForm()}
+    <div class="toolbar">
+      <input id="search" placeholder="Search by title, genre or ID (like M003)" value="${safe(searchText)}">
+      <select id="filter">
+        <option value="all">All movies</option>
+        <option value="watched" ${filterStatus === 'watched' ? 'selected' : ''}>Watched</option>
+        <option value="watchlist" ${filterStatus === 'watchlist' ? 'selected' : ''}>Watchlist</option></select>
+      <select id="sort">
+        <option value="title">Sort by title</option>
+        <option value="year" ${sortBy === 'year' ? 'selected' : ''}>Sort by year (newest)</option>
+        <option value="rating" ${sortBy === 'rating' ? 'selected' : ''}>Sort by rating (highest)</option></select>
+      <button class="main" data-action="new-movie">Add movie</button>
+      <button data-action="undo" ${undoStack.length === 0 ? 'disabled' : ''}>Undo (${undoStack.length})</button>
+    </div>
+    <div id="results">${movieResults()}</div>`;
+}
+
+function watchlistScreen() {
+  const queue = getWatchlistQueue();
+  let items = '';
+  for (let i = 0; i < queue.length; i++) {
+    items += `<li>${safe(queue[i].title)} (${queue[i].year}) ${i === 0 ? '<span class="tag">Front of queue</span>' : ''}</li>`;
+  }
+  const recent = getRecentlyWatched();
+  return `<h2>Watchlist</h2>
+    <div class="panel"><h3>Queue (first in, first out)</h3>
+      ${queue.length ? '<ol>' + items + '</ol><button class="main" data-action="watch-next">Watched the first one</button>' : '<p class="mute">The queue is empty.</p>'}</div>
+    <div class="panel"><h3>Recently watched</h3>${recent.length ? '<div class="chain">' + chainOfMovies(recent) + '</div>' : '<p class="mute">Nothing watched yet.</p>'}</div>`;
+}
+
+function adminScreen() {
+  if (!isAdmin()) return '<div class="empty">This page is for admins only.</div>';
+
+  let catalogRows = '';
+  for (let i = 0; i < catalog.length; i++) {
+    catalogRows += `<tr><td>${safe(catalog[i].title)}</td><td>${safe(catalog[i].genre)}</td><td>${catalog[i].year}</td><td>${catalog[i].rating}</td>
+      <td><button class="danger" data-action="remove-featured" data-id="${i}">Remove</button></td></tr>`;
+  }
+
+  let userRows = '';
+  const names = Object.keys(users);
+  for (let i = 0; i < names.length; i++) {
+    const n = names[i];
+    const saved = loadData('mcm_movies_' + n, []);
+    const isMe = (n === currentUser || n === 'admin');
+    userRows += `<tr><td>${safe(n)}</td><td>${users[n].role}</td><td>${saved.length}</td>
+      <td><input id="pw-${safe(n)}" placeholder="New password"></td>
+      <td><button data-action="set-password" data-id="${safe(n)}">Set</button>
+          ${isMe ? '' : `<button data-action="toggle-role" data-id="${safe(n)}">${users[n].role === 'admin' ? 'Make user' : 'Make admin'}</button>
+          <button class="danger" data-action="delete-user" data-id="${safe(n)}">Delete</button>`}</td></tr>`;
+  }
+
+  return `<h2>Admin</h2>
+    <div class="panel"><h3>Featured picks (${catalog.length})</h3>
+      <div class="fields">
+        <div><label>Title</label><input id="c-title"></div><div><label>Genre</label><input id="c-genre"></div>
+        <div><label>Year</label><input id="c-year" type="number"></div><div><label>Rating</label><input id="c-rating" type="number" step="0.1"></div>
+      </div>
+      <div class="buttons"><button class="main" data-action="add-featured-admin">Add featured movie</button></div>
+      <div class="scroll"><table><tr><th>Title</th><th>Genre</th><th>Year</th><th>Rating</th><th></th></tr>${catalogRows}</table></div></div>
+    <div class="panel"><h3>People using this app</h3>
+      <div class="scroll"><table><tr><th>Username</th><th>Role</th><th>Movies</th><th>New password</th><th></th></tr>${userRows}</table></div></div>`;
+}
+
+// render() draws the right screen into the page
+function render() {
+  const app = document.getElementById('app');
+  if (currentUser === null) { app.innerHTML = loginScreen(); return; }
+
+  let body = homeScreen();
+  if (currentPage === 'collection') body = collectionScreen();
+  if (currentPage === 'watchlist') body = watchlistScreen();
+  if (currentPage === 'admin') body = adminScreen();
+  app.innerHTML = topBar() + body;
+}
+
+
+// ===== 7. CLICKS AND TYPING =====
+// One listener catches every button click. Each button has data-action
+// that tells us what it should do.
+function value(id) { return document.getElementById(id).value; }
+
+document.addEventListener('click', function (event) {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const action = button.dataset.action;
+  const id = button.dataset.id;
+
+  if (action === 'mode-in') { loginMode = 'in'; render(); }
+  else if (action === 'mode-up') { loginMode = 'up'; render(); }
+  else if (action === 'login') {
+    if (loginMode === 'up') signUp(value('login-name').trim(), value('login-pass'));
+    else logIn(value('login-name').trim(), value('login-pass'));
+  }
+  else if (action === 'logout') { currentUser = null; render(); }
+  else if (action === 'go') { currentPage = id; editing = null; render(); }
+  else if (action === 'toggle') toggleWatched(id);
+  else if (action === 'delete') deleteMovie(id);
+  else if (action === 'edit') { editing = id; render(); window.scrollTo(0, 0); }
+  else if (action === 'new-movie') { editing = 'new'; render(); }
+  else if (action === 'cancel-form') { editing = null; render(); }
+  else if (action === 'save-form') saveForm();
+  else if (action === 'undo') undoLastChange();
+  else if (action === 'watch-next') watchNext();
+  else if (action === 'add-featured') addFromCatalog(Number(id));
+
+  // Admin actions
+  else if (action === 'add-featured-admin') {
+    const title = value('c-title').trim(), year = Number(value('c-year')), rating = Number(value('c-rating'));
+    if (title === '' || year < 1888 || rating < 0 || rating > 10) { showMessage('Enter a title, a valid year and a rating from 0 to 10.'); return; }
+    catalog.push({ title: title, genre: value('c-genre').trim() || 'Other', year: year, rating: rating });
+    saveData('mcm_catalog', catalog); render(); showMessage('Featured movie added.');
+  }
+  else if (action === 'remove-featured') { catalog.splice(Number(id), 1); saveData('mcm_catalog', catalog); render(); }
+  else if (action === 'set-password') {
+    const newPassword = value('pw-' + id);
+    if (newPassword.length < 6) { showMessage('Use at least 6 characters.'); return; }
+    users[id].password = scramble(newPassword); saveData('mcm_users', users); showMessage('Password updated.');
+  }
+  else if (action === 'toggle-role') { users[id].role = users[id].role === 'admin' ? 'user' : 'admin'; saveData('mcm_users', users); render(); }
+  else if (action === 'delete-user') { delete users[id]; saveData('mcm_users', users); saveData('mcm_movies_' + id, []); render(); }
+});
+
+// Typing in the search box updates only the results
+document.addEventListener('input', function (event) {
+  if (event.target.id === 'search') {
+    searchText = event.target.value;
+    document.getElementById('results').innerHTML = movieResults();
+  }
+});
+
+// Changing the filter or sort dropdown
+document.addEventListener('change', function (event) {
+  if (event.target.id === 'filter') { filterStatus = event.target.value; document.getElementById('results').innerHTML = movieResults(); }
+  if (event.target.id === 'sort') { sortBy = event.target.value; document.getElementById('results').innerHTML = movieResults(); }
+});
+
+// Pressing Enter in the login boxes or the home search box
+document.addEventListener('keydown', function (event) {
+  if (event.key !== 'Enter') return;
+  if (event.target.id === 'login-name' || event.target.id === 'login-pass') {
+    if (loginMode === 'up') signUp(value('login-name').trim(), value('login-pass'));
+    else logIn(value('login-name').trim(), value('login-pass'));
+  }
+  if (event.target.id === 'home-search') { searchText = event.target.value; currentPage = 'collection'; render(); }
+});
+
+// ===== START THE APP =====
+createAdminIfMissing();
+render();
+</script>
+</body>
+</html>
